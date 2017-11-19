@@ -23,7 +23,6 @@ bot.on('ready', function (evt) {
     logger.info('Connected');
     logger.info('Logged in as: ');
     logger.info(bot.username + ' - (' + bot.id + ')');
-    
 });
 bot.on('message', function (user, userID, channelID, message, evt) {
     // Our bot needs to know if it will execute a command
@@ -52,7 +51,12 @@ bot.on('message', function (user, userID, channelID, message, evt) {
                 }
             break;
             case 'join':
-                logger.info(bot.channels[channelID].members);
+                // bot.getMember ({
+                //     userID: userID,
+                //     channelID: channelID}, (res) =>logger.info(res));
+                var server_id = bot.channels[channelID].guild_id;
+                voice_channel_id = bot.servers[server_id].members[userID].voice_channel_id;
+                bot.joinVoiceChannel(voice_channel_id);
             break;
             // Just add any case commands if you want to..
          }
