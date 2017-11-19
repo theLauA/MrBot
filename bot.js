@@ -6,6 +6,7 @@ var yt_api_key = yt_auth.token;
 var request = require('request');
 var queue = [];
 var voice_connection = null;
+var ytdl = require("ytdl-core");
 
 
 // Configure logger settings
@@ -41,13 +42,29 @@ bot.on('message', function (user, userID, channelID, message, evt) {
                 });
             break;
             case 'play':
-                if (args.length < 2)
+                if (args.length < 2){
                     bot.sendMessage({
                         to:channelID,
                         message: 'Emptyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
-                    })
+                    });
+                    bot.getAudioContext(voice_channel_id, function(error, stream) {
+                        //Once again, check to see if any errors exist
+                        if (error) return console.error(error);
+                    
+                        //Create a stream to your file and pipe it to the stream
+                        //Without {end: false}, it would close up the stream, so make sure to include that.
+                        //fs.createReadStream('myFile.mp3').pipe(stream, {end: false});
+                        var audio_stream = ytdl("https://www.youtube.com/watch?v=GqMCLHcmxwU");
+                        audio_stream.pipe(stream, {end:false});
+                        //The stream fires `done` when it's got nothing else to send to Discord.
+                        stream.on('done', function() {
+                           //Handle
+                        });
+                    });
+                }
                 else{
-                    search_video(args.slice(1), channelID);
+                    logger.info(args.slice(1));
+                    //search_video(args.slice(1), channelID);
                 }
             break;
             case 'join':
@@ -56,7 +73,14 @@ bot.on('message', function (user, userID, channelID, message, evt) {
                 //     channelID: channelID}, (res) =>logger.info(res));
                 var server_id = bot.channels[channelID].guild_id;
                 voice_channel_id = bot.servers[server_id].members[userID].voice_channel_id;
-                bot.joinVoiceChannel(voice_channel_id);
+                if(voice_channel_id === null)
+                    bot.sendMessage({
+                        to:channelID,
+                        message: 'You need to be in a voice channel'
+                    });
+                else
+                    bot.joinVoiceChannel(voice_channel_id);
+                    voice_connection = voice_channel_id;
             break;
             // Just add any case commands if you want to..
          }
@@ -101,7 +125,7 @@ function add_to_queue(video,channelID=null, mute = false) {
                 queue.push({title: info["title"], id: video_id, user: message.author.username});
                 if (!mute) {
                     //message.reply('"' + info["title"] + '" has been added to the queue.');
-                    looger.info('"' + info["title"] + '" has been added to the queue.');
+                    logger.info('"' + info["title"] + '" has been added to the queue.');
                 }
                 if(!stopped && !is_bot_playing() && queue.length === 1) {
                     play_next_song();
@@ -110,6 +134,23 @@ function add_to_queue(video,channelID=null, mute = false) {
         });
     }
 
-    function is_bot_playing() {
-        return voice_handler !== null;
-    }
+function is_bot_playing() {
+    return voice_handler !== null;
+}
+
+function play_next_song(){
+    bot.getAudioContext(voice_channel_id, function(error, stream) {
+        //Once again, check to see if any errors exist
+        if (error) return console.error(error);
+    
+        //Create a stream to your file and pipe it to the stream
+        //Without {end: false}, it would close up the stream, so make sure to include that.
+        //fs.createReadStream('myFile.mp3').pipe(stream, {end: false});
+        var audio_stream = ytdl("https://www.youtube.com/watch?v=GqMCLHcmxwU");
+        audio_stream.pipe(stream, {end:false});
+        //The stream fires `done` when it's got nothing else to send to Discord.
+        stream.on('done', function() {
+           //Handle
+        });
+    });
+}
