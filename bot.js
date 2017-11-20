@@ -59,8 +59,7 @@ var commands = [{
     execute: function(message, args){
         if(playing === false && paused === true){
             paused = false;
-            playing = true;
-            
+            //playing = true;
             play();
             
         }else{
@@ -114,7 +113,7 @@ function handle_message(message){
         var command = search_command(cmd);
         console.log(command);
         if(command)
-            command.execute(message, args);
+            command.execute(message, args.slice(1));
     }
 }
 
@@ -138,11 +137,10 @@ function join(message, cb){
 }
 
 function play(){
-    
     if(queue.length > 0 && playing === false){
         const streamOptions = { seek: np_time, volume: 1 };
         const stream = ytdl('https://www.youtube.com/watch?v='+queue[0].id, { filter : 'audioonly' });
-        //console.log(np_time);
+        console.log(queue[0].id);
         dispatcher = voice_connection.playStream(stream, streamOptions);
         np_time = 0;
         //console.log(dispatcher.destroyed);
@@ -151,9 +149,12 @@ function play(){
         queue = queue.slice(1);
         dispatcher.once('end', function(evt){
             playing = false;
-            //console.log("end event");
+            console.log("end event");
+            np = null;
+            np_time = 0;
             if(queue.length > 0 && paused !==true)
                 play();
+
         });
 
         
@@ -161,12 +162,12 @@ function play(){
 }
 
 function pause(message){
-    if(playing === true){
+    if(playing === true && np !== null){
         paused = true;
         playing = false;
         //np.id = np.id + "?t=" + Math.round(dispatcher.time/1000) + "s";
         np_time = Math.round(dispatcher.time/1000);
-        queue.unshift( np);
+        queue.unshift(np);
         dispatcher.end();
         //voice_connection.disconnect();
         //voice_connection = null;
@@ -186,9 +187,10 @@ function search_video(message, args, position) {
         return;
     
     }
-    for (arg in args)
-        query += (arg+" ");
+    for (index in args)
+        query += (args[index]+" ");
     
+    console.log(query);
 	request("https://www.googleapis.com/youtube/v3/search?part=id&type=video&q=" + encodeURIComponent(query) + "&key=" + yt_api_key, (error, response, body) => {
 		var json = JSON.parse(body);
 		if("error" in json) {
