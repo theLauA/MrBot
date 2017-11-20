@@ -1,156 +1,96 @@
-var Discord = require('discord.io');
-var logger = require('winston');
-var auth = require('./auth.json');
-var yt_auth = require('./yt_auth.json');
-var yt_api_key = yt_auth.token;
-var request = require('request');
-var queue = [];
+/*
+  A bot that welcomes new guild members when they join
+*/
+
+// Import the discord.js module
+const Discord = require('discord.js');
+
+// Create an instance of a Discord client
+const client = new Discord.Client();
+const ytdl = require('ytdl-core');
+
+// The token of your bot - https://discordapp.com/developers/applications/me
+const token = 'MzgxODczMDQ4MDc4Mzg1MTYz.DPNelg.jgswLVJegBkWDPduAj-YRYjD2Vw';
+
 var voice_connection = null;
-var ytdl = require("ytdl-core");
+var dispatcher = null;
 
-
-// Configure logger settings
-logger.remove(logger.transports.Console);
-logger.add(logger.transports.Console, {
-    colorize: true
-});
-logger.level = 'debug';
-// Initialize Discord Bot
-var bot = new Discord.Client({
-   token: auth.token,
-   autorun: true
-});
-bot.on('ready', function (evt) {
-    logger.info('Connected');
-    logger.info('Logged in as: ');
-    logger.info(bot.username + ' - (' + bot.id + ')');
-});
-bot.on('message', function (user, userID, channelID, message, evt) {
-    // Our bot needs to know if it will execute a command
-    // It will listen for messages that will start with `!`
-    if (message.substring(0, 1) == '?') {
-        var args = message.substring(1).split(' ');
-        var cmd = args[0];
-       
-        args = args.splice(1);
-        switch(cmd) {
-            // !ping
-            case 'ping':
-                bot.sendMessage({
-                    to: channelID,
-                    message: 'Pong!'
-                });
-            break;
-            case 'play':
-                if (args.length < 2){
-                    bot.sendMessage({
-                        to:channelID,
-                        message: 'Emptyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
-                    });
-                    bot.getAudioContext(voice_channel_id, function(error, stream) {
-                        //Once again, check to see if any errors exist
-                        if (error) return console.error(error);
-                    
-                        //Create a stream to your file and pipe it to the stream
-                        //Without {end: false}, it would close up the stream, so make sure to include that.
-                        //fs.createReadStream('myFile.mp3').pipe(stream, {end: false});
-                        var audio_stream = ytdl("https://www.youtube.com/watch?v=GqMCLHcmxwU");
-                        audio_stream.pipe(stream, {end:false});
-                        //The stream fires `done` when it's got nothing else to send to Discord.
-                        stream.on('done', function() {
-                           //Handle
-                        });
-                    });
-                }
-                else{
-                    logger.info(args.slice(1));
-                    //search_video(args.slice(1), channelID);
-                }
-            break;
-            case 'join':
-                // bot.getMember ({
-                //     userID: userID,
-                //     channelID: channelID}, (res) =>logger.info(res));
-                var server_id = bot.channels[channelID].guild_id;
-                voice_channel_id = bot.servers[server_id].members[userID].voice_channel_id;
-                if(voice_channel_id === null)
-                    bot.sendMessage({
-                        to:channelID,
-                        message: 'You need to be in a voice channel'
-                    });
-                else
-                    bot.joinVoiceChannel(voice_channel_id);
-                    voice_connection = voice_channel_id;
-            break;
-            // Just add any case commands if you want to..
-         }
-     }
+var commands = [{
+    name: "hi",
+    execute: function(message, args){
+        message.reply("Sup");
+    }
+}, {
+    name: "join",
+    execute: function(message, args){
+        join(message);
+    }
+}, {
+    name: "play",
+    execute: function(message, args){
+        join(message)
+        const streamOptions = { seek: 0, volume: 1 };
+          
+        const stream = ytdl('https://www.youtube.com/watch?v=XAWgeLF9EVQ', { filter : 'audioonly' });
+        dispatcher = voice_connection.playStream(stream, streamOptions);
+          
+          
+    }
+}, {
+    name: 'pause',
+    execute: function(message, args){
+        dispatcher.pause();
+    }
+}];
+// The ready event is vital, it means that your bot will only start reacting to information
+// from Discord _after_ ready is emitted
+client.on('ready', () => {
+  console.log('I am ready!');
 });
 
+// Create an event listener for new guild members
+client.on('message', message => {
+  // Send the message to a designated channel on a server:
+  handle_message(message);
+});
 
-function search_video(query, channelID = null) {
-	request("https://www.googleapis.com/youtube/v3/search?part=id&type=video&q=" + encodeURIComponent(query) + "&key=" + yt_api_key, (error, response, body) => {
-		var json = JSON.parse(body);
-		if("error" in json) {
-            message = "An error has occurred: " + json.error.errors[0].message + " - " + json.error.errors[0].reason;
-            // bot.sendMessage({
-            //     to:channelID,
-            //     message: message
-            // })
-            logger.info("An error has occurred: " + json.error.errors[0].message + " - " + json.error.errors[0].reason);
-		} else if(json.items.length === 0) {
-            //message.reply("No videos found matching the search criteria.");
-            logger.info("No videos found matching the search criteria.");
-		} else {
-            add_to_queue(json.items[0].id.videoId, channelID);
-            logger.info(json.items[0].id.videoId);
-		}
-	})
-}
+// Log our bot in
+client.login(token);
 
-function add_to_queue(video,channelID=null, mute = false) {
-    
-        if(aliases.hasOwnProperty(video.toLowerCase())) {
-            video = aliases[video.toLowerCase()];
+function search_command(commandName){
+    for(command in commands){
+        if(commands[command].name === commandName.toLowerCase()){
+            return commands[command];
         }
-    
-        var video_id = get_video_id(video);
-    
-        ytdl.getInfo("https://www.youtube.com/watch?v=" + video_id, (error, info) => {
-            if(error) {
-                //message.reply("The requested video (" + video_id + ") does not exist or cannot be played.");
-                //console.log("Error (" + video_id + "): " + error);
-                logger.info("Error (" + video_id + "): " + error);
-            } else {
-                queue.push({title: info["title"], id: video_id, user: message.author.username});
-                if (!mute) {
-                    //message.reply('"' + info["title"] + '" has been added to the queue.');
-                    logger.info('"' + info["title"] + '" has been added to the queue.');
-                }
-                if(!stopped && !is_bot_playing() && queue.length === 1) {
-                    play_next_song();
-                }
-            }
-        });
     }
 
-function is_bot_playing() {
-    return voice_handler !== null;
+    return null;
 }
 
-function play_next_song(){
-    bot.getAudioContext(voice_channel_id, function(error, stream) {
-        //Once again, check to see if any errors exist
-        if (error) return console.error(error);
+function handle_message(message){
+    if(message.content[0] === '?'){
+        var args = message.content.substring(1).split(' ');
+        var cmd = args[0];
+        var command = search_command(cmd);
+        console.log(command);
+        if(command)
+            command.execute(message, args);
+    }
+}
+
+function join(message){
+    if (!message.guild) return;
     
-        //Create a stream to your file and pipe it to the stream
-        //Without {end: false}, it would close up the stream, so make sure to include that.
-        //fs.createReadStream('myFile.mp3').pipe(stream, {end: false});
-        var audio_stream = ytdl("https://www.youtube.com/watch?v=GqMCLHcmxwU");
-        audio_stream.pipe(stream, {end:false});
-        //The stream fires `done` when it's got nothing else to send to Discord.
-        stream.on('done', function() {
-           //Handle
-        });
-    });
+            
+            // Only try to join the sender's voice channel if they are in one themselves
+            if (message.member.voiceChannel) {
+                message.member.voiceChannel.join()
+                .then(connection => { // Connection is an instance of VoiceConnection
+                    voice_connection = connection;
+                    message.reply('I have successfully connected to the channel!');
+                })
+                .catch(console.log);
+            } else {
+                message.reply('You need to join a voice channel first!');
+            }
 }

@@ -6,6 +6,8 @@
     "author": "YOUR-NAME-HERE",
     "dependencies": {
         "discord.io": "^2.5.3",
+        "discord.js": "^11.2.1",
+        "opusscript": "0.0.4",
         "request": "^2.83.0",
         "winston": "^2.4.0",
         "ytdl": "^0.8.0",
