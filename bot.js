@@ -23,17 +23,21 @@ var commands = [{
 }, {
     name: "join",
     execute: function(message, args){
-        join(message);
+        join(message, ()=>{});
     }
 }, {
     name: "play",
     execute: function(message, args){
-        join(message)
-        const streamOptions = { seek: 0, volume: 1 };
-          
-        const stream = ytdl('https://www.youtube.com/watch?v=XAWgeLF9EVQ', { filter : 'audioonly' });
-        dispatcher = voice_connection.playStream(stream, streamOptions);
-          
+        
+        if (voice_connection === null){
+            join(message, ()=>{
+                play(message);
+            })  
+        } 
+        else
+            play(message);
+        
+       
           
     }
 }, {
@@ -78,19 +82,28 @@ function handle_message(message){
     }
 }
 
-function join(message){
+function join(message, cb){
     if (!message.guild) return;
     
             
-            // Only try to join the sender's voice channel if they are in one themselves
-            if (message.member.voiceChannel) {
-                message.member.voiceChannel.join()
-                .then(connection => { // Connection is an instance of VoiceConnection
-                    voice_connection = connection;
-                    message.reply('I have successfully connected to the channel!');
-                })
-                .catch(console.log);
-            } else {
-                message.reply('You need to join a voice channel first!');
-            }
+    // Only try to join the sender's voice channel if they are in one themselves
+    if (message.member.voiceChannel) {
+        message.member.voiceChannel.join()
+        .then(connection => { // Connection is an instance of VoiceConnection
+            voice_connection = connection;
+            message.reply('I have successfully connected to the channel!');
+            cb();
+        })
+        .catch(console.log);
+    } else {
+        message.reply('You need to join a voice channel first!');
+    }
+    
+}
+
+function play(message){
+    const streamOptions = { seek: 0, volume: 1 };
+    
+    const stream = ytdl('https://www.youtube.com/watch?v=XAWgeLF9EVQ', { filter : 'audioonly' });
+    dispatcher = voice_connection.playStream(stream, streamOptions);
 }
