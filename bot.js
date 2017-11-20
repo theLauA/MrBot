@@ -4,7 +4,7 @@
 
 // Import the discord.js module
 const Discord = require('discord.js');
-
+const request = require("request");
 // Create an instance of a Discord client
 const client = new Discord.Client();
 const ytdl = require('ytdl-core');
@@ -14,6 +14,12 @@ const token = 'MzgxODczMDQ4MDc4Mzg1MTYz.DPNelg.jgswLVJegBkWDPduAj-YRYjD2Vw';
 
 var voice_connection = null;
 var dispatcher = null;
+var playing = false;
+var paused = true;
+var queue = [];
+var np = null;
+var np_time = 0;
+var yt_api_key = "AIzaSyBFynoBUK0G3LhJegdjyaZKZ1HzCOY7_78";
 
 var commands = [{
     name: "hi",
@@ -31,11 +37,13 @@ var commands = [{
         
         if (voice_connection === null){
             join(message, ()=>{
-                play(message);
+                search_video(message, args, "TAIL");
+             
             })  
         } 
         else
-            play(message);
+          search_video(message, args, "TAIL");  
+       
         
        
           
@@ -43,7 +51,35 @@ var commands = [{
 }, {
     name: 'pause',
     execute: function(message, args){
-        dispatcher.pause();
+        
+        pause(message);
+    }
+}, {
+    name: 'resume',
+    execute: function(message, args){
+        if(playing === false && paused === true){
+            paused = false;
+            playing = true;
+            
+            play();
+            
+        }else{
+            message.reply(">>>>>>>>>Invalid Action>>>>>>>>>>");
+        }
+    }
+}, {
+    name: 'fuckoff',
+    execute: function(message,args){
+        playing = false;
+        pause = false;
+        queue = [];
+        np = null;
+        np_time = 0;
+
+        voice_connection.disconnect();
+        voice_connection = null;
+
+        message.reply("OK.");
     }
 }];
 // The ready event is vital, it means that your bot will only start reacting to information
@@ -101,9 +137,92 @@ function join(message, cb){
     
 }
 
-function play(message){
-    const streamOptions = { seek: 0, volume: 1 };
+function play(){
     
-    const stream = ytdl('https://www.youtube.com/watch?v=XAWgeLF9EVQ', { filter : 'audioonly' });
-    dispatcher = voice_connection.playStream(stream, streamOptions);
+    if(queue.length > 0 && playing === false){
+        const streamOptions = { seek: np_time, volume: 1 };
+        const stream = ytdl('https://www.youtube.com/watch?v='+queue[0].id, { filter : 'audioonly' });
+        //console.log(np_time);
+        dispatcher = voice_connection.playStream(stream, streamOptions);
+        np_time = 0;
+        //console.log(dispatcher.destroyed);
+        playing = true;
+        np = queue[0];
+        queue = queue.slice(1);
+        dispatcher.once('end', function(evt){
+            playing = false;
+            //console.log("end event");
+            if(queue.length > 0 && paused !==true)
+                play();
+        });
+
+        
+    } 
+}
+
+function pause(message){
+    if(playing === true){
+        paused = true;
+        playing = false;
+        //np.id = np.id + "?t=" + Math.round(dispatcher.time/1000) + "s";
+        np_time = Math.round(dispatcher.time/1000);
+        queue.unshift( np);
+        dispatcher.end();
+        //voice_connection.disconnect();
+        //voice_connection = null;
+
+
+    } else {
+        message.reply(">>>>>>>>>Invalid Action>>>>>>>>>>");
+    }
+}
+
+
+function search_video(message, args, position) {
+    var query = "";
+    
+    if(args === null | args.length <= 0){
+        message.reply("?play [song_name]");
+        return;
+    
+    }
+    for (arg in args)
+        query += (arg+" ");
+    
+	request("https://www.googleapis.com/youtube/v3/search?part=id&type=video&q=" + encodeURIComponent(query) + "&key=" + yt_api_key, (error, response, body) => {
+		var json = JSON.parse(body);
+		if("error" in json) {
+			message.reply("An error has occurred: " + json.error.errors[0].message + " - " + json.error.errors[0].reason);
+		} else if(json.items.length === 0) {
+			message.reply("No videos found matching the search criteria.");
+		} else {
+            add_to_queue(message, json.items[0].id.videoId, position);
+		}
+	})
+}
+
+function add_to_queue(message, video_id, position){
+    
+    ytdl.getInfo("https://www.youtube.com/watch?v=" + video_id, (error, info) => {
+		if(error) {
+			message.reply("The requested video (" + video_id + ") does not exist or cannot be played.");
+			console.log("Error (" + video_id + "): " + error);
+		} else {
+			var temp = {title: info["title"], id: video_id, user: message.author.username};
+            switch(position){
+                case "HEAD":
+                queue.unshift(temp);    
+                break;
+                case "TAIL":
+                queue.push(temp);
+                break;
+            }
+			message.reply('"' + info["title"] + '" has been added to the queue.');
+            
+            if(playing === false){
+				play();
+			}
+		}
+	});
+
 }
