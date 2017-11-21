@@ -43,10 +43,7 @@ var commands = [{
         } 
         else
           search_video(message, args, "TAIL");  
-       
-        
-       
-          
+
     }
 }, {
     name: 'pause',
@@ -84,6 +81,11 @@ var commands = [{
     name: "skip",
     execute: function(message, args){
         skip(message);
+    }
+}, {
+    name: "np",
+    execute: function(message, args){
+        nowplaying(message);
     }
 }];
 // The ready event is vital, it means that your bot will only start reacting to information
@@ -222,8 +224,10 @@ function add_to_queue(message, video_id, position){
 			message.reply("The requested video (" + video_id + ") does not exist or cannot be played.");
 			console.log("Error (" + video_id + "): " + error);
 		} else {
-			var temp = {title: info["title"], id: video_id, user: message.author.username};
-            //console.log(info);
+            
+			var temp = {title: info["title"], id: video_id, user: message.author.username, length_second: info["length_seconds"]};
+            
+            console.log( info["length_seconds"]);
             switch(position){
                 case "HEAD":
                 queue.unshift(temp);    
@@ -248,5 +252,28 @@ function skip(message){
         
         message.reply("Skip " + np.title);
         dispatcher.end();
+    }
+}
+
+function nowplaying(message){
+    if(np !== null){
+        
+        var percent = 0;
+        if(np.length_second !== 0 && dispatcher !== null)
+            percent = Math.round(dispatcher.time/ 1000 / np.length_second * 10);
+        
+ 
+        var progress_bar = "";
+        for(var i = 0; i < 9 ; i++){
+            if(i === percent)
+                progress_bar += "@"
+            progress_bar += "__";
+        }
+        message.channel.send({
+            "embed": {
+                "title": ">>>>>Now Playing>>>>>",
+                "description": np.title + "```\n"+ progress_bar +"```"
+            }
+        });
     }
 }
