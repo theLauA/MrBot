@@ -80,6 +80,11 @@ var commands = [{
 
         message.reply("OK.");
     }
+}, {
+    name: "skip",
+    execute: function(message, args){
+        skip(message);
+    }
 }];
 // The ready event is vital, it means that your bot will only start reacting to information
 // from Discord _after_ ready is emitted
@@ -138,22 +143,28 @@ function join(message, cb){
 
 function play(){
     if(queue.length > 0 && playing === false){
+
         const streamOptions = { seek: np_time, volume: 1 };
         const stream = ytdl('https://www.youtube.com/watch?v='+queue[0].id, { filter : 'audioonly' });
         console.log(queue[0].id);
+        console.log(np_time);
         dispatcher = voice_connection.playStream(stream, streamOptions);
         np_time = 0;
         //console.log(dispatcher.destroyed);
         playing = true;
         np = queue[0];
+        
         queue = queue.slice(1);
+
+        //console.log(np.title);
         dispatcher.once('end', function(evt){
             playing = false;
             console.log("end event");
-            np = null;
-            np_time = 0;
-            if(queue.length > 0 && paused !==true)
+            if(queue.length > 0 && paused !==true){
+                np = null;
+                np_time = 0;
                 play();
+            }
 
         });
 
@@ -167,6 +178,7 @@ function pause(message){
         playing = false;
         //np.id = np.id + "?t=" + Math.round(dispatcher.time/1000) + "s";
         np_time = Math.round(dispatcher.time/1000);
+        console.log(np_time);
         queue.unshift(np);
         dispatcher.end();
         //voice_connection.disconnect();
@@ -211,6 +223,7 @@ function add_to_queue(message, video_id, position){
 			console.log("Error (" + video_id + "): " + error);
 		} else {
 			var temp = {title: info["title"], id: video_id, user: message.author.username};
+            //console.log(info);
             switch(position){
                 case "HEAD":
                 queue.unshift(temp);    
@@ -227,4 +240,13 @@ function add_to_queue(message, video_id, position){
 		}
 	});
 
+}
+
+function skip(message){
+    //console.log(np);
+    if(playing === true && np !== null){
+        
+        message.reply("Skip " + np.title);
+        dispatcher.end();
+    }
 }
