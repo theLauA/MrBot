@@ -10,7 +10,7 @@ const client = new Discord.Client();
 const ytdl = require('ytdl-core');
 
 // The token of your bot - https://discordapp.com/developers/applications/me
-const token = 'MzgxODczMDQ4MDc4Mzg1MTYz.DPNelg.jgswLVJegBkWDPduAj-YRYjD2Vw';
+const token = '';
 
 var voice_connection = null;
 var dispatcher = null;
@@ -19,7 +19,7 @@ var paused = true;
 var queue = [];
 var np = null;
 var np_time = 0;
-var yt_api_key = "AIzaSyBFynoBUK0G3LhJegdjyaZKZ1HzCOY7_78";
+var yt_api_key = "";
 
 var commands = [{
     name: "hi",
